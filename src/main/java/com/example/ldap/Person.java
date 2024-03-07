@@ -3,6 +3,11 @@ import lombok.Data;
 import lombok.ToString;
 import org.springframework.ldap.odm.annotations.Attribute;
 import org.springframework.ldap.odm.annotations.Entry;
+import org.springframework.ldap.odm.annotations.Id;
+
+
+import javax.naming.Name;
+import java.util.jar.Attributes;
 
 
 @Data
@@ -10,6 +15,8 @@ import org.springframework.ldap.odm.annotations.Entry;
 @Entry(objectClasses = {"posixAccount"}, base = "ou=People,dc=wanstech,dc=com")
 
  public class Person {
+ @Id
+ private Name id;
 
 @Attribute(name = "uidNumber")
 private String personId;

@@ -4,13 +4,18 @@ import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ldap.core.AttributesMapper;
 import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.filter.EqualsFilter;
 import org.springframework.ldap.query.LdapQuery;
+import org.springframework.ldap.support.LdapNameBuilder;
+import org.springframework.ldap.support.LdapUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import javax.naming.Context;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.*;
+import javax.naming.ldap.LdapName;
 import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,21 +25,33 @@ import static org.springframework.ldap.query.LdapQueryBuilder.query;
 @Component
 public class LdapRepo {
 
-    @Resource
+    @Autowired
     private LdapTemplate ldapTemplate;
 
-    public List<Person> getAllPerson(){
-        return ldapTemplate.search(query().where("objectclass").is("posixAccount"), new AttributesMapper<Person>() {
-            @Override
-            public Person mapFromAttributes(Attributes attributes)  throws NamingException {
-                Person person= new Person();
-                person.setPersonId((String)attributes.get("uidNumber").get());
-                person.setPersonName((String)attributes.get("cn").get());
-                person.setOrgId((String)attributes.get("gidnumber").get());
-                return person;
-            }
-        });
+
+
+    //将这个AttributeMapper转Person的方法抽象出来
+    private class PersonAttributesMapper implements  AttributesMapper{
+        @Override
+        public Person mapFromAttributes(Attributes attributes)  throws NamingException {
+            Person person= new Person();
+            person.setPersonId(attributes.get("uidNumber").get().toString());
+            person.setPersonName(attributes.get("cn").get().toString());
+            person.setOrgId(attributes.get("gidnumber").get().toString());
+
+            return person;
+        }
     }
+
+    public List<Person> getAllPerson(){
+        return ldapTemplate.search(query().where("objectclass").is("posixAccount"), new PersonAttributesMapper());
+    }
+
+    public Object findPerson(String dn) {
+
+        return ldapTemplate.lookup(dn, new PersonAttributesMapper());
+    }
+
 
     public List<String> getAllPersonNames() {
         return ldapTemplate.search(
@@ -77,5 +94,19 @@ public class LdapRepo {
         }
 
         return list;
+    }
+
+    public boolean auth(String username, String passwd) {
+        username="cn="+username+",ou=People,dc=wanstech,dc=com";
+        EqualsFilter filter = new EqualsFilter("dn", username);
+        return ldapTemplate.authenticate("", filter.toString(), passwd);
+
+
+    }
+
+    protected LdapName buildDn(Person p) {
+        return  LdapNameBuilder.newInstance("ou=People,dc=wanstech,dc=com")
+                .add("cn", p.getPersonName())
+                .build();
     }
 }
